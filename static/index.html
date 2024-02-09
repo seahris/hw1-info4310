@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<html>
+    <head>
+        <meta charset="UTF-8">
+        <script src="https://d3js.org/d3.v7.min.js"></script>
+        <script src="https://d3js.org/topojson.v3.min.js"></script>
+        <style>
+            #title{
+                text-align: center;
+                font-family:Arial, Helvetica, sans-serif;
+                font-size: 32px;
+                margin-top: 60px;
+                color: #000;
+            }
+            #header{
+                text-align: left;
+                font-weight: 300;
+                font-size: 20px;
+                font-family:Arial, Helvetica, sans-serif;
+                margin-left: 5%;
+                margin-right: 5%;
+                margin-top: 60px;
+                color: #000;
+            }
+            #body{
+                font-weight: 300;
+                font-size: 20px;
+                margin-left: 5%;
+                margin-right: 5%;
+                color: #5A5A5A;
+                font-family:Arial, Helvetica, sans-serif;
+            }
+            #borderImg{
+                display: block;
+                margin-left: auto;
+                margin-right: auto; 
+            }
+
+            #svg{
+                display: block;
+                margin-left: auto;
+                margin-right: auto;
+            }
+
+            .outline {
+                fill: lightgrey;
+                stroke: white;
+                stroke-width: 2px;
+                stroke-linejoin: round;
+            }
+            .datapoint{
+                opacity: 0.3;
+                stroke: #60855D;
+                fill: #9DD798;
+            }
+            .legend{
+                font-size: 20px;
+            }
+           
+        </style>
+    </head> 
+    <body>
+        <!-- cwz6 -->
+        <!-- INFO 4310, HW1 -->
+        <h1 id="title"> Breathing Easy: Unveiling San Francisco's Oxygen Oases</h1>
+        <img src="images/treeborder.png" alt="Footer" id="borderImg">
+        <h2 id="header"> Which demographic and geographic factors influence tree planting efforts, and how can this inform strategies to promote increased tree planting for environmental preservation?</h2>
+        <p id="body">Planting trees is vital to preserving the environment. To better understand who and where we should be encouraging to plant more trees we want to understanding where the trees are planted.</p>
+        <svg id="treesDBH" height ="800" width="1000" style="margin:20px"></svg>
+        <svg id="treesAge" height ="800" width="1000" style="margin:20px"></svg>
+        <p id="body"> Based off the map Lakeshore, Presidio, Golden Gate Park, and Seacliff seem like the neighborhoods with fewer trees.</p>
+        <img src="images/treeborder.png" alt="Footer" id="borderImg">
+
+        <script>
+            const mapsvg = d3.select("#treesDBH");
+            const mapHeight = mapsvg.attr("height");
+            const mapWidth = mapsvg.attr("width");
+            const margin = mapsvg.attr("margin");
+            const map = mapsvg.append("g")
+
+                              
+            //Async function 
+            const requestMap = async function() {
+                const sf = await d3.json("SF-Neighborhoods.geo.json");
+                let dataset = await d3.csv("Street_Tree_List-2022-01-30_FILTERED.csv");
+                //console.log(sf);
+                //console.log(dataset);
+
+
+                //DRAW MAP
+                //create d3 helpers, projection, and path 
+                var neighborhoods = topojson.feature(sf, sf.objects.SFNeighborhoods);
+                var neighborhoodsMesh = topojson.mesh(sf, sf.objects.SFNeighborhoods);
+                var projection = d3.geoMercator().fitSize([mapWidth, mapHeight], neighborhoodsMesh);
+                var path = d3.geoPath().projection(projection);
+                console.log(neighborhoods);
+                console.log(neighborhoodsMesh);
+
+                //draw neighborhoods
+                let neighborhoodFills = map.selectAll("path.neighborhoods").data(neighborhoods.features)
+                                                   .join("path")
+                                                   .attr("class", "neighborhood")
+                                                   .attr("note", d => d.id)
+                                                   .attr("d", path)
+                                                   .attr("fill", "lightgrey");
+                
+                //draw outlines
+                let neighborhoodsoutlines = map.append("path").datum(neighborhoodsMesh)
+                                               .attr("class", "outline")
+                                               .attr("d", path);
+
+                //scales 
+                const dbhExtent = d3.extent(dataset, d => d['DBH']);
+                const dbhScale = d3.scaleLinear().domain(dbhExtent).range([1, 10]);
+
+               
+                //const colorScale =  d3.scaleOrdinal().domain(caregivers).range(d3.schemeCategory10);
+                
+                //add jitter
+                const jitter = () => Math.floor(Math.random()*15)-4;
+
+                dataset.forEach((d,i) => {
+                        d['Longitude'] = Number(d['Longitude']);
+                        d['Latitude'] = Number(d['Latitude']);
+                    }) 
+                
+                //add in circles
+                dataset.forEach((d, i) => {       
+                    let circles = map.append("circle")
+                                    .attr("class", "datapoint")
+                                    .attr("cx", projection([d['Longitude'],d['Latitude']])[0] +jitter())
+                                    .attr("cy", projection([d['Longitude'],d['Latitude']])[1] +jitter())
+                                    .attr("r", dbhScale(d['DBH']))
+                                    .style("fill", "#9DD798");
+                
+                    })
+                
+                //add lengend
+                map.append("text")
+                    .attr("class", "legend")
+                    .attr("x", mapWidth - 350)
+                    .attr("y", 60)
+                    .text("151 DBH")
+                map.append("circle")
+                    .attr("class", "datapoint")
+                    .attr("cx", mapWidth - 380)
+                    .attr("cy", 55)
+                    .attr("r", 10)
+                map.append("text")
+                    .attr("class", "legend")
+                    .attr("x", mapWidth - 350)
+                    .attr("y", 90)
+                    .text("0 DBH")
+                map.append("circle")
+                    .attr("class", "datapoint")
+                    .attr("cx", mapWidth - 380)
+                    .attr("cy", 85)
+                    .attr("r", 1)
+                
+                
+            }
+
+            requestMap();
+
+            const mapsvg2 = d3.select("#treesAge");
+            const map2 = mapsvg2.append("g")
+
+            const requestMap2 = async function() {
+                const sf = await d3.json("SF-Neighborhoods.geo.json");
+                let dataset = await d3.csv("Street_Tree_List-2022-01-30_FILTERED.csv");
+                //console.log(sf);
+                //console.log(dataset);
+
+                const newDataset = dataset.map(d => {
+                    const dateParts = d['PlantDate'].split(" ")[0].split("/");
+                    let readyear = parseInt(dateParts[2]);
+                    if (readyear < 30) {
+                        readyear += 100;
+                    } else if (readyear > 30) {
+                        readyear + 0;
+                    } else {
+                        readyear = 0;
+                    }
+                    return { ...d, year: readyear }; // Assign 'years' property to the data point
+                });
+                console.log(newDataset)
+
+                // for (let i = 0; i < newDataset.length; i++) {
+                //     if (!newDataset[i].year) {
+                //         console.log("Object at index", i, "does not have a year property.");
+                //     }
+                // }
+
+
+                //DRAW MAP
+                //create d3 helpers, projection, and path 
+                var neighborhoods = topojson.feature(sf, sf.objects.SFNeighborhoods);
+                var neighborhoodsMesh = topojson.mesh(sf, sf.objects.SFNeighborhoods);
+                var projection = d3.geoMercator().fitSize([mapWidth, mapHeight], neighborhoodsMesh);
+                var path = d3.geoPath().projection(projection);
+                console.log(neighborhoods);
+                console.log(neighborhoodsMesh);
+
+                //draw neighborhoods
+                let neighborhoodFills = map2.selectAll("path.neighborhoods").data(neighborhoods.features)
+                                                   .join("path")
+                                                   .attr("class", "neighborhood")
+                                                   .attr("note", d => d.id)
+                                                   .attr("d", path)
+                                                   .attr("fill", "lightgrey");
+                
+                //draw outlines
+                let neighborhoodsoutlines = map2.append("path").datum(neighborhoodsMesh)
+                                               .attr("class", "outline")
+                                               .attr("d", path);
+
+                //scales
+
+                const yearExtent = d3.extent(newDataset, d => d['year']);
+                const yearScale = d3.scaleQuantile().domain(yearExtent).range(["lightgrey","#9DD798","#70B66A","#46993F","#24781D"]);
+                console.log("yearExtent")
+                console.log(yearExtent)
+                console.log(yearScale(100));
+               
+                //const colorScale =  d3.scaleOrdinal().domain(caregivers).range(d3.schemeCategory10);
+                
+                //add jitter
+                const jitter = () => Math.floor(Math.random()*15)-4;
+
+                newDataset.forEach((d,i) => {
+                        d['Longitude'] = Number(d['Longitude']);
+                        d['Latitude'] = Number(d['Latitude']);
+                    }) 
+                
+                //add in circles
+                newDataset.forEach((d, i) => {      
+                    let circles = map2.append("circle")
+                                    //.attr("class", "datapoint")
+                                    .attr("cx", projection([d['Longitude'],d['Latitude']])[0] +jitter())
+                                    .attr("cy", projection([d['Longitude'],d['Latitude']])[1] +jitter())
+                                    .attr("r", 3)
+                                    .style("fill", yearScale(d.year))
+                                    .style("opacity", 0.5);
+                    })
+                
+                //add lengend
+                map2.append("text")
+                    .attr("class", "legend")
+                    .attr("x", mapWidth - 350)
+                    .attr("y", 60)
+                    .text("151 DBH")
+                map2.append("circle")
+                    .attr("class", "datapoint")
+                    .attr("cx", mapWidth - 380)
+                    .attr("cy", 55)
+                    .attr("r", 10)
+                map2.append("text")
+                    .attr("class", "legend")
+                    .attr("x", mapWidth - 350)
+                    .attr("y", 90)
+                    .text("0 DBH")
+                map2.append("circle")
+                    .attr("class", "datapoint")
+                    .attr("cx", mapWidth - 380)
+                    .attr("cy", 85)
+                    .attr("r", 1)
+                
+                
+            }
+
+            requestMap2();
+            
+          
+        </script>   
+
+
+    </body>
+</html>
